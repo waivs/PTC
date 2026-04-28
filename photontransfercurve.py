@@ -4,7 +4,20 @@
 Created on Mon Apr 27 16:44:28 2026
 
 @author: jeremy.rogers@wisc.edu
+
+Quickstart:
+    import photontransfercurve as ptc
+    import matplotlib.plot as plt
+    <load data as 3D video with first dimension as time or frames>
+    signal,noise = ptc.ptc(data)
+    ge,sr = ptc.fitptc(signal,noise)
+    plt.figure()
+    plt.loglog(signal,noise, label='data')
+    plt.loglog(signal, ge*signal+sr)
+    plt.legend()
 """
+
+
 
 # %% imports
 import time
