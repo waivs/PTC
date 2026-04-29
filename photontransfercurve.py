@@ -23,7 +23,6 @@ Quickstart:
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-import photontransfercurve as ptc
 from scipy.optimize import curve_fit
 
 
@@ -97,7 +96,7 @@ def ptc(d, binsize=None):
 
 
 # %% functions for calculating PTC
-def fitptc(signal, noise, saturation=None):
+def fitptc(signal, noise, maxfit='Noise2'):
     """
     Fit a model of noise as a function of signal and return fit coefficients.
     The fit is performed on variance as a function of signal which is modeled
@@ -114,11 +113,21 @@ def fitptc(signal, noise, saturation=None):
     
     This function performs 2 iterations. Linear least squares fit normally 
     assumes equal variance of the resduals, however, we expect poisson (shot)
-    noise, so the variance /standard deviation depends on the signal. The 
-    curve_fit function have be passed an array sigma to weight the fit according
-    to the expected standard deviation. Thereore, we first fit the noise to get 
-    an estimate of sigma, and the repeat the fit using the first fit parameters
+    noise, so the variance / standard deviation depends on the signal. The 
+    curve_fit function can be passed an array sigma to weight the fit according
+    to the expected standard deviation. Thereore, the first fit gives an 
+    estimate of sigma, and the second fit uses the first fit parameters
     to calculate an estimated weighting function.
+
+    maxfit: When the mean value approaches saturation, the signal + noise
+    begins to saturate with increasing frequency and both the calculated 
+    signal and noise will be under estimated. It is therefore best to fit only
+    values below the saturation value. If the noise is normally distributed 
+    about the mean, mean signal values within 2 x noise of the saturation value
+    will be saturated 2.3% of the time. The default is therefore to only fit 
+    values where the mean signal is less than max value minus 2x the maximum 
+    noise. This is a somewhat arbitrary threshold, so if a user prefers a 
+    different limit, that can be passed directly as a value for maxfit.
     
     Parameters
     ----------
@@ -126,14 +135,13 @@ def fitptc(signal, noise, saturation=None):
         array of signal values
     noise : 1D array of length N
         array of corresponding noise values
-    saturation : value 
+    maxfit : value 
         This is the maximum value that the system can produce and is used to 
         limit the fit range so that values that begin to saturate do not 
         contribute to the fit erroneously:
             False: fit all the values provided
-            None (default): stop the fit 2x the max noise below the max signal value
+            'Noise2' (default): stop the fit 2x the max noise below the max signal value
             Value: fit only up to the given value
-        DESCRIPTION. The default is None.
 
     Returns
     -------
@@ -145,9 +153,9 @@ def fitptc(signal, noise, saturation=None):
     """
     def noisevar(signal, ge, sr2):  return ge*signal+sr2
     
-    if saturation == False: maxfitval = signal.max()
-    elif saturation == None: maxfitval = signal.max()-2*noise.max()
-    else: maxfitval = saturation
+    if maxfit == False: maxfitval = signal.max()
+    elif maxfit == 'Noise2': maxfitval = signal.max()-2*noise.max()
+    else: maxfitval = maxfit
 
     sigvals2fit = signal[signal<maxfitval]
     noisevals2fit = noise[signal<maxfitval]
@@ -157,7 +165,7 @@ def fitptc(signal, noise, saturation=None):
                           sigvals2fit, 
                           noisevals2fit**2, 
                           [1,0], # initial guesses for gain and read noise
-                          bounds=([0,-1e4],[1e8,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
+                          bounds=([0,-1e4],[1e6,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
     ge, sr2 = pout
     
     # second iteration passing weighted function
@@ -166,7 +174,7 @@ def fitptc(signal, noise, saturation=None):
                           noisevals2fit**2, 
                           [ge,sr2], # initial guesses for gain and read noise
                           sigma=((sigvals2fit-sigvals2fit.min()+1)*ge+sr2)**.5, 
-                          bounds=([0,-1e4],[1e8,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
+                          bounds=([0,-1e4],[1e6,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
     ge, sr2 = pout
 
     return ge, sr2**.5
