@@ -55,28 +55,27 @@ def ptc(d, binsize=None):
     noise = np.std(d,axis=0,ddof=1) # sample standard deviation of each pixel flattened to a 1D array
     
     # if binsize if passed, bin the data according to the bin size
-    if binsize==1:
+    if binsize==None or binsize==0: print(f'no binning, returning all values')
+    elif binsize>0 and binsize==int(binsize):
         roundedsignal = np.round(signal) # signal rounded for indexing
-        signalbins = np.arange(roundedsignal.min(),roundedsignal.max()) # values for binning the data
+        signalbins = np.arange(roundedsignal.min(),roundedsignal.max(),binsize) # values for binning the data
         binnedsignal = 0*signalbins
         binnednoise = 0*signalbins # array to hold binned noise vals
         nptsinbin = 0*signalbins # number of pixels in each bin
-        for ii in np.arange(binnedsignal.shape[0]):
-            binnedsignal[ii]=np.mean(d[:,roundedsignal==signalbins[ii]])
-            binnednoise[ii]=np.std(d[:,roundedsignal==signalbins[ii]],ddof=1)
-            nptsinbin[ii] = d[:,roundedsignal==signalbins[ii]].shape[1]
+        for ii in np.arange(signalbins.shape[0]):
+            pointstouse = roundedsignal==signalbins[ii]
+            for jj in np.arange(1,binsize):
+                if ii+jj<signalbins.shape[0]:
+                    # pointstouse+=(roundedsignal==signalbins[ii-jj])
+                    pointstouse+=(roundedsignal==signalbins[ii+jj])
+            binnedsignal[ii]=np.mean(d[:,pointstouse])
+            binnednoise[ii]=np.std(d[:,pointstouse],ddof=1)
+            nptsinbin[ii] = d[:,pointstouse].shape[1]        
         
-        # TODO: work on generalizing for different bins sizes ...
-        # binsize = 10
-        # for ii in np.arange(sigvals.shape[0]):
-        #     pointstouse = dmean==sigvals[ii]
-        #     for jj in np.arange(int(np.floor(binsize/2)-1))+1:
-        #         if ii-jj>=0 and ii+jj<=sigvals.shape[0]-1:
-        #             pointstouse+=(dmean==sigvals[ii-jj])
-        #             pointstouse+=(dmean==sigvals[ii+jj])
-        #     binnednoise[ii]=np.std(d[:,pointstouse],ddof=1)
-        #     nptsinbin[ii] = d[:,pointstouse].shape[1]
-
+        # now that binning is done, trim extra values
+        binnedsignal = binnedsignal[:ii]
+        binnednoise = binnednoise[:ii]
+        nptsinbin=nptsinbin[:ii]
         t=1 # threshold: remove elements with too few points (i.e. not enough 
             # to calculate std())
             # t=0 is the bare minimum if std(x,ddof=0) is used, but we use
@@ -90,7 +89,10 @@ def ptc(d, binsize=None):
         
         signal = binnedsignal;
         noise = binnednoise;
-    else: print(f'only binsize=1 is currently supported, returning all values')
+        print(f'binned data into {signal.shape[0]} bins of size {binsize}')
+    
+    else: print(f'only positive integer binsize is currently supported, returning all values')
+    # TODO: work on generalizing for different bins sizes including decimal ...
 
     return signal, noise
 
