@@ -59,6 +59,7 @@ def ptc(d, binsize=None):
     elif binsize>0 and binsize==int(binsize):
         roundedsignal = np.round(signal) # signal rounded for indexing
         signalbins = np.arange(roundedsignal.min(),roundedsignal.max(),binsize) # values for binning the data
+        signalbinsrange = np.arange(roundedsignal.min(),roundedsignal.max())
         binnedsignal = 0*signalbins
         binnednoise = 0*signalbins # array to hold binned noise vals
         nptsinbin = 0*signalbins # number of pixels in each bin
@@ -67,15 +68,16 @@ def ptc(d, binsize=None):
             for jj in np.arange(1,binsize):
                 if ii+jj<signalbins.shape[0]:
                     # pointstouse+=(roundedsignal==signalbins[ii-jj])
-                    pointstouse+=(roundedsignal==signalbins[ii+jj])
+                    pointstouse+=(roundedsignal==signalbinsrange[ii+jj])
+
             binnedsignal[ii]=np.mean(d[:,pointstouse])
             binnednoise[ii]=np.std(d[:,pointstouse],ddof=1)
             nptsinbin[ii] = d[:,pointstouse].shape[1]        
-        
+        print(signalbins.shape,signalbinsrange.shape)
         # now that binning is done, trim extra values
-        binnedsignal = binnedsignal[:ii]
-        binnednoise = binnednoise[:ii]
-        nptsinbin=nptsinbin[:ii]
+        # binnedsignal = binnedsignal[:ii]
+        # binnednoise = binnednoise[:ii]
+        # nptsinbin=nptsinbin[:ii]
         t=1 # threshold: remove elements with too few points (i.e. not enough 
             # to calculate std())
             # t=0 is the bare minimum if std(x,ddof=0) is used, but we use
@@ -167,17 +169,47 @@ def fitptc(signal, noise, maxfit='Noise2'):
                           sigvals2fit, 
                           noisevals2fit**2, 
                           [1,0], # initial guesses for gain and read noise
-                          bounds=([0,-1e4],[1e6,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
+                          bounds=([0,0],[1e6,1e5])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
     ge, sr2 = pout
     
+    print(f' initial fit ge: {ge}, sr2: {sr2}')
     # second iteration passing weighted function
     pout,pcov = curve_fit(noisevar, 
                           sigvals2fit, 
                           noisevals2fit**2, 
                           [ge,sr2], # initial guesses for gain and read noise
                           sigma=((sigvals2fit-sigvals2fit.min()+1)*ge+sr2)**.5, 
-                          bounds=([0,-1e4],[1e6,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
+                          bounds=([0,0],[1e6,1e5])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
     ge, sr2 = pout
 
     return ge, sr2**.5
 
+def fitptcd(signal, noise, maxfit='Noise2'):
+    def noisevar(signal, ge, sr2, d):  return ge*(signal-d)+sr2
+    
+    if maxfit == False: maxfitval = signal.max()
+    elif maxfit == 'Noise2': maxfitval = signal.max()-2*noise.max()
+    else: maxfitval = maxfit
+
+    sigvals2fit = signal[signal<maxfitval]
+    noisevals2fit = noise[signal<maxfitval]
+    
+    # first iteration to estimate sigma
+    pout,pcov = curve_fit(noisevar, 
+                          sigvals2fit, 
+                          noisevals2fit**2, 
+                          [1,0,0], # initial guesses for gain and read noise
+                          bounds=([0,0,-1e4],[1e6,1e5,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
+    ge, sr2, d = pout
+    
+    print(f' initial fit ge: {ge}, sr2: {sr2}, d:{d}')
+    # second iteration passing weighted function
+    pout,pcov = curve_fit(noisevar, 
+                          sigvals2fit, 
+                          noisevals2fit**2, 
+                          [ge,sr2,d], # initial guesses for gain and read noise
+                          sigma=((sigvals2fit-sigvals2fit.min()+1)*ge+sr2)**.5, 
+                          bounds=([0,0,-1e4],[1e6,1e5,1e4])) # bounds are ([a_min,b_min,c_min,...],[a_max,b_max,cmax,...])
+    ge, sr2, d = pout
+
+    return ge, sr2**.5, d
