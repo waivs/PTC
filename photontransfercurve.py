@@ -56,28 +56,18 @@ def ptc(d, binsize=None):
     
     # if binsize if passed, bin the data according to the bin size
     if binsize==None or binsize==0: print(f'no binning, returning all values')
-    elif binsize>0 and binsize==int(binsize):
-        roundedsignal = np.round(signal) # signal rounded for indexing
-        signalbins = np.arange(roundedsignal.min(),roundedsignal.max(),binsize) # values for binning the data
-        signalbinsrange = np.arange(roundedsignal.min(),roundedsignal.max())
+    elif binsize>0:        
+        nsignalbins = np.ceil((np.nanmax(signal)-np.nanmin(signal))/binsize).astype(int) # number of bins
+        signalbins = np.arange(nsignalbins)*binsize - np.nanmin(signal)
+        binindices = np.digitize(signal,signalbins) # bin to assign each data point
         binnedsignal = 0*signalbins
-        binnednoise = 0*signalbins # array to hold binned noise vals
-        nptsinbin = 0*signalbins # number of pixels in each bin
-        for ii in np.arange(signalbins.shape[0]):
-            pointstouse = roundedsignal==signalbins[ii]
-            for jj in np.arange(1,binsize):
-                if ii+jj<signalbins.shape[0]:
-                    # pointstouse+=(roundedsignal==signalbins[ii-jj])
-                    pointstouse+=(roundedsignal==signalbinsrange[ii+jj])
-
-            binnedsignal[ii]=np.mean(d[:,pointstouse])
-            binnednoise[ii]=np.std(d[:,pointstouse],ddof=1)
-            nptsinbin[ii] = d[:,pointstouse].shape[1]        
-        print(signalbins.shape,signalbinsrange.shape)
-        # now that binning is done, trim extra values
-        # binnedsignal = binnedsignal[:ii]
-        # binnednoise = binnednoise[:ii]
-        # nptsinbin=nptsinbin[:ii]
+        binnednoise = 0*signalbins
+        nptsinbin = 0*signalbins
+        for b in np.unique(binindices):
+            binnedsignal[b] = signal[binindices==b].mean()
+            binnednoise[b] = noise[binindices==b].mean()
+            nptsinbin[b] = (binindices==b).sum()
+            
         t=1 # threshold: remove elements with too few points (i.e. not enough 
             # to calculate std())
             # t=0 is the bare minimum if std(x,ddof=0) is used, but we use
@@ -93,9 +83,6 @@ def ptc(d, binsize=None):
         noise = binnednoise;
         print(f'binned data into {signal.shape[0]} bins of size {binsize}')
     
-    else: print(f'only positive integer binsize is currently supported, returning all values')
-    # TODO: work on generalizing for different bins sizes including decimal ...
-
     return signal, noise
 
 
