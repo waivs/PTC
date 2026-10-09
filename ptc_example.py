@@ -27,8 +27,7 @@ binnedsignal, binnednoise = ptc.ptc(data,binsize=1) # binned data
 
 
 # %% display results
-f1,a1=plt.subplots(nrows=2,ncols=2,num=1);f1.clear()
-f1,a1=plt.subplots(nrows=2,ncols=2,num=1); # resets plot each time
+f1,a1=plt.subplots(nrows=2,ncols=2,num=1, clear=True);
 
 a1[0,0].imshow(data.mean(axis=0),cmap='gray'); a1[0,0].set_title('Average image')
 a1[0,1].imshow(data.std(axis=0,ddof=1)); a1[0,1].set_title('Noise image (std)')
@@ -118,8 +117,7 @@ simfitdark = 0 # set to zero in case we don't use the fit below
 
 binnedsimdsignal, binnedsimdnoise = ptc.ptc(simd,binsize=2) # binned data
 
-f2,a2=plt.subplots(nrows=2,ncols=2,num=2);f2.clear()
-f2,a2=plt.subplots(nrows=2,ncols=2,num=2); # resets plot each time
+f2,a2=plt.subplots(nrows=2,ncols=2,num=2, clear=True)
 
 a2[0,0].imshow(simd.mean(axis=0),cmap='gray'); a2[0,0].set_title('Average modeled image')
 a2[0,1].imshow(simd.std(axis=0,ddof=1)); a2[0,1].set_title('modeled noise')
